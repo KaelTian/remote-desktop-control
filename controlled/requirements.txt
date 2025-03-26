@@ -1,7 +1,8 @@
-flask==2.0.1
-flask-socketio==5.1.1
-pyautogui==0.9.53
-mss==6.1.0
-pillow==9.0.0
-python-engineio==4.0.0
-python-socketio==5.0.4
+flask==2.0.3
+flask-socketio==5.3.2
+python-engineio==4.3.4
+python-socketio==5.7.2
+werkzeug==2.0.3
+pyautogui==0.9.54
+mss==9.0.1
+pillow==9.5.0
