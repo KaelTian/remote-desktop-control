@@ -1,19 +1,26 @@
 import pyautogui
 import mss
 import mss.tools
-from flask import Flask, request, jsonify
+from flask import Flask, jsonify
 import threading
-import socketio  # 新增导入
-from flask_socketio import SocketIO
+import socketio
 import base64
 import io
 from PIL import Image
+import time
 
 app = Flask(__name__)
-# 修改为使用 socketio.Client
-sio = socketio.Client()  # 替换原来的 SocketIO(app)
+# 创建客户端（兼容旧版本）
+sio = socketio.Client(reconnection=True, reconnection_attempts=5, reconnection_delay=1)
 
-SERVER_URL = "http://192.168.0.211:5000"  # 修改为你的服务器地址
+SERVER_URL = "http://192.168.0.211:5000"
+
+# 解决跨域问题（如果服务器未配置CORS）
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+    return response
 
 @app.route('/screenshot', methods=['GET'])
 def get_screenshot():
@@ -32,42 +39,67 @@ def get_screenshot():
 
 @sio.event
 def connect():
-    print("Connected to signaling server")
-    sio.emit('register_controller', {'name': 'Controlled PC'})
+    print("被控端成功连接到信令服务器")
+    sio.emit('register_viewer', {'name': 'Controlled PC'})
+
+@sio.event
+def connect_error(data):
+    print("连接失败:", data)
 
 @sio.event
 def disconnect():
-    print("Disconnected from signaling server")
+    print("与信令服务器断开连接")
 
 @sio.on('remote_event')
 def on_remote_event(data):
-    event_type = data.get('type')
-    if event_type == 'click':
-        x, y = data['x'], data['y']
-        button = data.get('button', 'left')
-        pyautogui.click(x, y, button=button)
-    elif event_type == 'move':
-        x, y = data['x'], data['y']
-        pyautogui.moveTo(x, y)
-    elif event_type == 'key':
-        key = data['key']
-        pyautogui.press(key)
-    elif event_type == 'scroll':
-        dx, dy = data.get('dx', 0), data.get('dy', 0)
-        pyautogui.scroll(dy)
+    try:
+        event_type = data.get('type')
+        if event_type == 'click':
+            pyautogui.click(data['x'], data['y'], button=data.get('button', 'left'))
+        elif event_type == 'move':
+            pyautogui.moveTo(data['x'], data['y'])
+        elif event_type == 'key':
+            pyautogui.press(data['key'])
+        elif event_type == 'scroll':
+            pyautogui.scroll(data.get('dy', 0))
+    except Exception as e:
+        print("处理远程事件出错:", e)
 
 def run_flask():
-    app.run(host='0.0.0.0', port=5001)
+    app.run(host='0.0.0.0', port=5001, threaded=True)
 
+def connect_to_server():
+    while True:
+        try:
+            if not sio.connected:
+                print(f"尝试连接到服务器 {SERVER_URL}...")
+                sio.connect(
+                    SERVER_URL,
+                    transports=['websocket', 'polling'],  # 允许降级到轮询
+                    namespaces=['/'],
+                    wait_timeout=30  # 增加超时时间
+                )
+                print("成功连接到服务器")
+        except Exception as e:
+            print(f"连接失败: {str(e)}")
+            print("5秒后重试...")
+            time.sleep(5)
+
+# 修改客户端连接部分
 if __name__ == '__main__':
-    # 启动Flask服务器
     flask_thread = threading.Thread(target=run_flask)
     flask_thread.daemon = True
     flask_thread.start()
     
-    # 连接到信令服务器
+    # 启动连接线程
+    connect_thread = threading.Thread(target=connect_to_server)
+    connect_thread.daemon = True
+    connect_thread.start()
+    
     try:
-        sio.connect(SERVER_URL)
-        sio.wait()  # 保持连接
-    except Exception as e:
-        print(f"Failed to connect to signaling server: {e}")
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("程序正在退出...")
+        if sio.connected:
+            sio.disconnect()
