@@ -11,7 +11,7 @@ from PIL import Image
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-SERVER_URL = "http://your-server-ip:5000"  # 修改为你的服务器地址
+SERVER_URL = "http://192.168.0.211:5000"  # 修改为你的服务器地址
 
 # 连接到信令服务器
 socketio.connect(SERVER_URL)
