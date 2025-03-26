@@ -33,6 +33,8 @@ class RemoteDesktopController:
         self.canvas.bind("<ButtonRelease-1>", self.on_release)
         self.canvas.bind("<MouseWheel>", self.on_scroll)
         self.master.bind("<Key>", self.on_key)
+                # 绑定右键点击事件
+        self.canvas.bind("<Button-3>", self.on_right_click)
 
         # 初始截图
         self.update_screenshot()
@@ -71,7 +73,7 @@ class RemoteDesktopController:
             print(f"Error updating screenshot: {e}")
 
         # 每100毫秒更新一次
-        self.master.after(100, self.update_screenshot)
+        self.master.after(200, self.update_screenshot)
 
     def on_click(self, event):
         # 将坐标转换回原始屏幕尺寸
@@ -83,6 +85,17 @@ class RemoteDesktopController:
             'x': x,
             'y': y,
             'button': 'left'
+        }, namespace='/')
+    def on_right_click(self, event):
+        # 将坐标转换回原始屏幕尺寸
+        x = event.x / self.scale
+        y = event.y / self.scale
+
+        sio.emit('control_event', {
+            'type': 'click',
+            'x': x,
+            'y': y,
+            'button': 'right'
         }, namespace='/')
 
     def on_drag(self, event):
