@@ -73,7 +73,7 @@ class RemoteDesktopController:
             print(f"Error updating screenshot: {e}")
 
         # 每100毫秒更新一次
-        self.master.after(200, self.update_screenshot)
+        self.master.after(100, self.update_screenshot)
 
     def on_click(self, event):
         # 将坐标转换回原始屏幕尺寸
