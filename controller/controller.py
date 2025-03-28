@@ -114,7 +114,7 @@ class RemoteDesktopController:
     def on_scroll(self, event):
         sio.emit('control_event', {
             'type': 'scroll',
-            'dy': event.delta // 120  # 标准化滚动量
+            'delta': event.delta // 120  # 标准化滚动量
         }, namespace='/')
 
     def on_key(self, event):

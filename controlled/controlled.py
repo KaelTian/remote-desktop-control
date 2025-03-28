@@ -10,6 +10,7 @@ from PIL import Image
 import asyncio
 import logging
 from concurrent.futures import ThreadPoolExecutor
+import InputController
 
 app = Flask(__name__)
 # 创建客户端（兼容旧版本）
@@ -28,6 +29,10 @@ log.setLevel(logging.ERROR)
 
 # 创建固定大小的线程池
 executor = ThreadPoolExecutor(max_workers=4)
+
+# 在文件顶部添加
+input_ctrl = InputController.InputController()
+
 
 # 解决跨域问题（如果服务器未配置CORS）
 @app.after_request
@@ -80,20 +85,15 @@ async def process_events():
             event_type = data.get('type')
             if event_type == 'click':
                 button = data.get('button', 'left')
-                clicks = data.get('clicks', 1)  # 获取点击次数，默认为 1
-                print(f"执行点击操作：位置 ({data['x']}, {data['y']})，按钮 {button}，点击次数 {clicks}")
-                # 使用固定线程池执行 pyautogui 操作
-                await asyncio.get_event_loop().run_in_executor(executor, pyautogui.click, data['x'], data['y'], clicks, 0.0, button)
-            elif event_type == 'move':
-                await asyncio.get_event_loop().run_in_executor(executor, pyautogui.moveTo, data['x'], data['y'])
+                input_ctrl.click(int(data['x']), int(data['y']), button)
             elif event_type == 'key':
-                # 调整按键延迟
-                pyautogui.PAUSE = 0.001  # 进一步降低延迟
-                # 尝试使用 typewrite 处理连续按键
-                await asyncio.get_event_loop().run_in_executor(executor, pyautogui.typewrite, data['key'])
+                input_ctrl.key_press(data['key'])
+            elif event_type == 'move':
+                input_ctrl.move(int(data['x']), int(data['y']))
             elif event_type == 'scroll':
-                await asyncio.get_event_loop().run_in_executor(executor, pyautogui.scroll, data.get('dy', 0))
-            # 标记任务完成
+                input_ctrl.scroll(int(data['delta']))
+            elif event_type == 'text':
+                input_ctrl.text(data['text'])
             event_queue.task_done()
         except Exception as e:
             print("处理远程事件出错:", e)
