@@ -155,10 +155,10 @@ class RemoteDesktopController:
         NUMLOCK_MASK = 0x20000
         
         if state & SHIFT_MASK: modifiers.append("Shift")
-        if state & CONTROL_MASK: modifiers.append("Ctrl")
-        #if state & ALT_MASK: modifiers.append("Alt")
-        if state & NUMLOCK_MASK: modifiers.append("NumLock")
-        if state & CAPSLOCK_MASK: modifiers.append("CapsLock")
+        elif state & CONTROL_MASK: modifiers.append("Ctrl")
+        #elif state & ALT_MASK: modifiers.append("Alt")
+        elif state & NUMLOCK_MASK: modifiers.append("NumLock")
+        elif state & CAPSLOCK_MASK: modifiers.append("CapsLock")
         
         # 排除修饰键自身的事件
         is_modifier_key = event.keysym in ('Shift_L', 'Shift_R', 
@@ -172,13 +172,18 @@ class RemoteDesktopController:
         
         if modifiers:
             # 组合键事件 - 这里会捕获所有带修饰键的按键
-            print(f"检测到组合键: {', '.join(modifiers)} + {event.keysym}")
+            combination = '+'.join(modifiers + [event.keysym])
+            print(f"检测到组合键: {combination}")
+            sio.emit('control_event', {
+                'type': 'key_combination',
+                'combination': combination
+            }, namespace='/')
         else:
             # 处理普通按键事件
             sio.emit('control_event', {
                 'type': 'key',
                 'key': event.char
-                }, namespace='/')
+            }, namespace='/')
 
 @sio.event
 def connect():

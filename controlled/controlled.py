@@ -81,6 +81,10 @@ async def on_remote_event(data):
             with open(save_path, 'wb') as file:
                 file.write(file_data)
             print(f"文件 {file_name} 已保存到 {save_path}")
+        elif event_type == 'key_combination':
+            combination = data['combination'].split('+')
+            print(f"收到组合键事件: {combination}")
+            pyautogui.hotkey(*combination)
         else:
             # 将事件添加到异步队列v
             await event_queue.put(data)
