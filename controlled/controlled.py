@@ -9,7 +9,8 @@ import io
 from PIL import Image
 import asyncio
 import logging
-from concurrent.futures import ThreadPoolExecutor
+import os
+#from concurrent.futures import ThreadPoolExecutor
 import InputController
 
 app = Flask(__name__)
@@ -28,7 +29,7 @@ log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
 
 # 创建固定大小的线程池
-executor = ThreadPoolExecutor(max_workers=4)
+#executor = ThreadPoolExecutor(max_workers=4)
 
 # 在文件顶部添加
 input_ctrl = InputController.InputController()
@@ -72,10 +73,19 @@ def disconnect():
 @sio.on('remote_event')
 async def on_remote_event(data):
     try:
-        # 将事件添加到异步队列
-        await event_queue.put(data)
+        event_type = data.get('type')
+        if event_type == 'file':
+            file_name = data.get('file_name')
+            file_data = base64.b64decode(data.get('file_data'))
+            save_path = os.path.join('shared_files', file_name)
+            with open(save_path, 'wb') as file:
+                file.write(file_data)
+            print(f"文件 {file_name} 已保存到 {save_path}")
+        else:
+            # 将事件添加到异步队列v
+            await event_queue.put(data)
     except Exception as e:
-        print("添加事件到队列出错:", e)
+        print("处理远程事件出错:", e)
 
 async def process_events():
     while True:

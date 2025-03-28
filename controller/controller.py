@@ -8,6 +8,7 @@ import tkinter as tk
 from tkinter import Canvas
 import socketio
 import time
+import os
 
 app = Flask(__name__)
 sio = socketio.Client(reconnection=True, reconnection_attempts=5, reconnection_delay=1)
@@ -32,9 +33,11 @@ class RemoteDesktopController:
         self.canvas.bind("<B1-Motion>", self.on_drag)
         self.canvas.bind("<ButtonRelease-1>", self.on_release)
         self.canvas.bind("<MouseWheel>", self.on_scroll)
-        self.master.bind("<Key>", self.on_key)
-                # 绑定右键点击事件
-        self.canvas.bind("<Button-3>", self.on_right_click)
+        self.canvas.bind("<Button-3>", self.on_right_click)# 绑定右键点击事件
+        self.master.bind("<Key>", self.on_key) # 所有按键事件
+        self.master.bind('<Control-c>', self.on_ctrl_c)
+        self.master.bind('<Control-v>', self.on_ctrl_v)
+        
 
         # 初始截图
         self.update_screenshot()
@@ -116,12 +119,68 @@ class RemoteDesktopController:
             'type': 'scroll',
             'delta': event.delta  # 标准化滚动量
         }, namespace='/')
-
+    def on_ctrl_c(self, event):
+        print("检测到组合键: Ctrl+C (复制)")
+        return "break"  # 阻止默认行为
+    
+    def on_ctrl_v(self, event):
+        print("检测到组合键: Ctrl+V (粘贴)")
+        # 获取剪贴板中的文件路径
+        file_path = self.master.clipboard_get()
+        if os.path.isfile(file_path):
+            try:
+                with open(file_path, 'rb') as file:
+                    file_data = file.read()
+                    file_name = os.path.basename(file_path)
+                    sio.emit('control_event', {
+                            'type': 'file',
+                            'file_name': file_name,
+                            'file_data': base64.b64encode(file_data).decode('utf-8')
+                        }, namespace='/')
+            except Exception as e:
+                    print(f"发送文件时出错: {e}")
+        else:
+                print(f"剪贴板内容不是有效的文件路径: {file_path}")
     def on_key(self, event):
-        sio.emit('control_event', {
-            'type': 'key',
-            'key': event.char
-        }, namespace='/')
+        # 更可靠的修饰键检测方法
+        modifiers = []
+        state = event.state
+        
+        # 注意：不同平台/系统下这些位掩码可能不同
+        # 以下是常见Linux/Windows下的位掩码
+        SHIFT_MASK = 0x0001
+        CAPSLOCK_MASK = 0x0002
+        CONTROL_MASK = 0x0004
+        ALT_MASK = 0x0008
+        NUMLOCK_MASK = 0x20000
+        
+        if state & SHIFT_MASK: modifiers.append("Shift")
+        if state & CONTROL_MASK: modifiers.append("Ctrl")
+        if state & ALT_MASK: modifiers.append("Alt")
+        if state & NUMLOCK_MASK: modifiers.append("NumLock")
+        if state & CAPSLOCK_MASK: modifiers.append("CapsLock")
+        
+        # 排除修饰键自身的事件
+        is_modifier_key = event.keysym in ('Shift_L', 'Shift_R', 
+                                        'Control_L', 'Control_R',
+                                        'Alt_L', 'Alt_R',
+                                        'Caps_Lock', 'Num_Lock')
+        if is_modifier_key:
+            # 这是修饰键自身被按下/释放的事件
+            print(f"修饰键按下: {event.keysym}")
+            return
+        
+        if modifiers:
+            # 组合键事件 - 这里会捕获所有带修饰键的按键
+            print(f"检测到组合键: {', '.join(modifiers)} + {event.keysym}")
+        else:
+            # 普通按键事件
+            print(f"单独按键: {event.char} (keysym: {event.keysym})")
+            # 处理普通按键事件
+            sio.emit('control_event', {
+                'type': 'key',
+                'key': event.char
+                }, namespace='/')
 
 @sio.event
 def connect():
