@@ -90,7 +90,7 @@ async def on_remote_event(data):
 async def process_events():
     while True:
         try:
-            # 从异步队列中获取事件
+            # 从异步队列中获取事
             data = await event_queue.get()
             event_type = data.get('type')
             if event_type == 'click':
